@@ -1,2 +1,10 @@
-# reinforcement-learning
-I created a simulated sheep herding game with pygame.  I then used reinforcement learning to train a model to play the game.
+### Requirements:
+- numpy
+- pygame
+
+### Instructions:
+- Run by typing "python run_game.py"
+- The map can be editted by following the convention in map.txt
+
+### In Progress:
+Adding a reinforcement learning model to play the game on its own
