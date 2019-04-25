@@ -330,7 +330,7 @@ class Player:
         self.position = self.map.allowed_position(self.position, proposed_position, self.size)
 
 def initiate_game(filename, graphics=True):
-    gm = GameMap("test.txt")
+    gm = GameMap("map.txt")
     gm.run_game(graphics)
 
 if __name__ == "__main__":
