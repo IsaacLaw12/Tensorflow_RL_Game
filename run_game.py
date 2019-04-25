@@ -4,7 +4,7 @@ import math
 import numpy as np
 from assets import GameMap, PLAYER_SIZE, SHEEP_SIZE
 
-gamemap = GameMap("test.txt")
+gamemap = GameMap("map.txt")
 x_bounds = gamemap.width
 y_bounds = gamemap.height
 
