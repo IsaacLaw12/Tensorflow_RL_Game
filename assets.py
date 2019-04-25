@@ -45,7 +45,8 @@ class GameMap:
         for i in range(self.map_shape[0]):
             for j in range(self.map_shape[1]):
                 if self.map[j, i] == PLAYER_CHAR:
-                    self.player = Player(self, i*self.map_scale, j*self.map_scale)
+                    self.player = Player(self, (i*self.map_scale, j*self.map_scale))
+                    break
 
     def load_sheep(self):
         sheep_locs = []
@@ -307,6 +308,8 @@ class Player:
         global PLAYER_SPEED, PLAYER_ACCELERATION, PLAYER_SIZE, SPEED_CONVERSION
         self.map = map
         self.position = position
+        print("POSITION")
+        print(position)
         self.speed = PLAYER_SPEED * SPEED_CONVERSION
         self.manually_controlled = manually_controlled
         self.size = PLAYER_SIZE
@@ -325,7 +328,7 @@ class Player:
 
         dir = dir / max(np.linalg.norm(dir), .0001)
         proposed_position = self.position + self.speed * dir
-        if np.dot((1,1), dir):
+        if np.dot((1, 2), dir):
             self.direction = dir
         self.position = self.map.allowed_position(self.position, proposed_position, self.size)
 

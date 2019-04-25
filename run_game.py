@@ -25,6 +25,7 @@ def run_game():
     running = True
 
     while running:
+        gamemap.load_map()
         start_time = time.time()
         quit = run_game_instance(screen)
         end_time = time.time()
@@ -120,9 +121,8 @@ def rotated_image(surface_obj, direction):
     direction: unit length vector
     '''
     angle = math.acos(np.dot((0, 1), direction))
-    #opp_angle = math.acos(np.dot((0, -1), direction))
-    if direction[0] < 0:
-        angle += math.pi
+    if direction [0] < 0:
+        angle = angle * -1
     angle = angle * 180 / math.pi
     result = pygame.transform.rotate(surface_obj, angle)
     return result
