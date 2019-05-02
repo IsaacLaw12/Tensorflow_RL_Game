@@ -25,6 +25,61 @@ class GameMap:
         self.load_map()
         self.player = Player(self, (60, 60))
 
+    def get_state(self):
+        '''
+        returns essential elements ready for input into a neural network
+        player position
+        sheep positions
+        location of goal
+        is finished
+        '''
+        player_position = self.player.position
+
+        sheep_positions = []
+        for sheep in self.sheep:
+            sheep_positions.append(sheep.position)
+
+        sheep_positions = np.array(sheep_positions)
+        is_finished = 1 if self.game_over() == True else 0
+        positions = []
+        positions.append(player_position)
+        positions.extend(sheep_positions)
+        return np.array(positions), is_finished
+
+    def set_state(self, state):
+        '''
+        state: [:, 2] Rows of (x, y) pairs
+        The first position is assumed to be player position, followed by sheep positions
+        '''
+        expected_length = len(self.sheep) + 1
+        if len(state) != expected_length:
+            print("Tried to set state with size of %s, %s expected. " % (len(state), expected_length))
+            return
+        self.player.position = state[0, :]
+        # Assign values to all of the sheep
+        for shp_num, sheep in enumerate(self.sheep):
+            sheep.position = state[shp_num+1, :]
+
+    def advance_moves(self, action=1, distance=1):
+        '''
+        Advance player and sheep moves for this game cycle
+        action: [1-5] Player's move
+           1: Stay still
+           2: Move North
+           3: Move East
+           4. Move South
+           5. Move West
+        distance: Number of times to move the distance specified in the agent's speed
+        '''
+        UP = action == 2
+        DOWN = action == 4
+        LEFT = action == 5
+        RIGHT = action == 3
+        for _ in range(distance):
+            self.player.move_player(UP, DOWN, LEFT, RIGHT)
+            for sheep in self.sheep:
+                sheep.advance_move()
+
     def load_map(self):
         self.map = None
         combined = []
@@ -46,7 +101,6 @@ class GameMap:
             for j in range(self.map_shape[1]):
                 if self.map[j, i] == PLAYER_CHAR:
                     self.player = Player(self, (i*self.map_scale, j*self.map_scale))
-                    break
 
     def load_sheep(self):
         sheep_locs = []
@@ -84,6 +138,30 @@ class GameMap:
             else:
                 all_sheep_in_pen = True
         return all_sheep_in_pen
+
+    def get_score(self, in_pen_score=25, dis_from_pen_penalty=.1):
+        score = 0
+        missing_sheep = []
+        # Add sheep in pen
+        for shp in self.sheep:
+            shp_rect = pygame.Rect(shp.position, shp.size)
+            if shp_rect.collidelist(self.pen_rects) == -1:
+                missing_sheep.append(shp)
+            else:
+                score += in_pen_score
+        # Measure aprox distance from pen
+        if dis_from_pen_penalty:
+            for sheep in missing_sheep:
+                score -= self.dist_nearest_pen(sheep) * dis_from_pen_penalty
+        return score
+
+    def dist_nearest_pen(self, sheep):
+        lowest_dis = 1000000
+        for pen in self.pen_rects:
+            distance = np.linalg.norm(sheep.position - pen[0:2])
+            if distance < lowest_dis:
+                lowest_dis = distance
+        return lowest_dis
 
     def set_w_h(self):
         self.width = self.map_scale * self.map_shape[0]
@@ -308,8 +386,6 @@ class Player:
         global PLAYER_SPEED, PLAYER_ACCELERATION, PLAYER_SIZE, SPEED_CONVERSION
         self.map = map
         self.position = position
-        print("POSITION")
-        print(position)
         self.speed = PLAYER_SPEED * SPEED_CONVERSION
         self.manually_controlled = manually_controlled
         self.size = PLAYER_SIZE
@@ -319,21 +395,37 @@ class Player:
         return np.array((0, 0))
 
     def check_for_input(self, pressed):
-        x_pos, y_pos = self.position
-        dir = np.array((0, 0))
-        if pressed[pygame.K_UP]: dir[1] = -1
-        if pressed[pygame.K_DOWN]: dir[1] = 1
-        if pressed[pygame.K_LEFT]: dir[0] = -1
-        if pressed[pygame.K_RIGHT]: dir[0] = 1
+        up = bool(pressed[pygame.K_UP])
+        down = bool(pressed[pygame.K_DOWN])
+        left = bool(pressed[pygame.K_LEFT])
+        right = bool(pressed[pygame.K_RIGHT])
+        self.move_player(up, down, left, right)
 
-        dir = dir / max(np.linalg.norm(dir), .0001)
+    def move_player(self, UP=False, DOWN=False, LEFT=False, RIGHT=False):
+        '''
+        Converts cardinal directions to a vector direction, then moves player in that direction
+        '''
+        dir = np.array((0, 0))
+        if UP:
+            dir[1] = -1
+        elif DOWN:
+            dir[1] = 1
+        if LEFT:
+            dir[0] = -1
+        elif RIGHT:
+            dir[0] = 1
+        self.move_direction(dir)
+
+    def move_direction(self, dir):
+        dir_mag = np.linalg.norm(dir)
+        dir = dir / max(dir_mag, .0001)
         proposed_position = self.position + self.speed * dir
-        if np.dot((1, 2), dir):
+        if dir_mag > .0001:
             self.direction = dir
         self.position = self.map.allowed_position(self.position, proposed_position, self.size)
 
 def initiate_game(filename, graphics=True):
-    gm = GameMap("map.txt")
+    gm = GameMap("test.txt")
     gm.run_game(graphics)
 
 if __name__ == "__main__":

@@ -2,9 +2,9 @@ import pygame
 import time
 import math
 import numpy as np
-from assets import GameMap, PLAYER_SIZE, SHEEP_SIZE
+from game_assets import GameMap, PLAYER_SIZE, SHEEP_SIZE
 
-gamemap = GameMap("map.txt")
+gamemap = GameMap("map_rl.txt")
 x_bounds = gamemap.width
 y_bounds = gamemap.height
 
@@ -25,7 +25,6 @@ def run_game():
     running = True
 
     while running:
-        gamemap.load_map()
         start_time = time.time()
         quit = run_game_instance(screen)
         end_time = time.time()
@@ -34,6 +33,7 @@ def run_game():
             break
         if not play_again(screen, score):
             running = False
+    pygame.quit()
 
 def play_again(screen, score):
     play_again = None
@@ -43,8 +43,6 @@ def play_again(screen, score):
         if pressed[pygame.K_RETURN]:
             gamemap.load_map()
             play_again = True
-        if pressed[pygame.K_q]:
-            play_again = False
         if check_for_quit():
             play_again = False
     return play_again
@@ -68,6 +66,7 @@ def run_game_instance(screen):
             return True
         read_input()
         render_graphics(screen)
+        print(gamemap.score_game(dis_from_pen_penalty=1))
         clock.tick(60)
     return False
 
@@ -121,7 +120,8 @@ def rotated_image(surface_obj, direction):
     direction: unit length vector
     '''
     angle = math.acos(np.dot((0, 1), direction))
-    if direction [0] < 0:
+    #opp_angle = math.acos(np.dot((0, -1), direction))
+    if direction[0] < 0:
         angle = angle * -1
     angle = angle * 180 / math.pi
     result = pygame.transform.rotate(surface_obj, angle)
@@ -132,6 +132,9 @@ def check_for_quit():
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
                 done = True
+    pressed = pygame.key.get_pressed()
+    if pressed[pygame.K_q]:
+        done = True
     return done
 
 if __name__ == "__main__":
