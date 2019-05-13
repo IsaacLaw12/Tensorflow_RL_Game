@@ -2,25 +2,25 @@ import numpy as np
 import pygame
 import random
 
-MAP_SCALE = 30
+MAP_SCALE = 25
 
 PLAYER_SPEED = 4
-PLAYER_SIZE = (30, 30)
+PLAYER_SIZE = tuple( [int(5 + MAP_SCALE / 2) for i in range(1, 3)])
 FPS = 60
 SPEED_CONVERSION = .5
 
-SHEEP_SIZE = (40, 40)
+SHEEP_SIZE = tuple( [int(10 + MAP_SCALE / 2) for i in range(1, 3)])
 SHEEP_MAX_SPEED = 3
 SHEEP_SPEED = 1
 NUMBER_SHEEP = 5
 
 class GameMap:
-    def __init__(self, filename):
+    def __init__(self, filename, ms=MAP_SCALE):
         global MAP_WIDTH, MAP_HEIGHT
         self.map_file = filename
         self.boundaries = []
         self.pen_rects = []
-        self.map_scale = MAP_SCALE
+        self.map_scale = ms
         self.sheep = []
         self.load_map()
         self.player = Player(self, (60, 60))
@@ -40,7 +40,7 @@ class GameMap:
             sheep_positions.append(sheep.position)
 
         sheep_positions = np.array(sheep_positions)
-        is_finished = 1 if self.game_over() == True else 0
+        is_finished = 1 if self.game_over() else 0
         positions = []
         positions.append(player_position)
         positions.extend(sheep_positions)
@@ -71,10 +71,10 @@ class GameMap:
            5. Move West
         distance: Number of times to move the distance specified in the agent's speed
         '''
-        UP = action == 2
-        DOWN = action == 4
-        LEFT = action == 5
-        RIGHT = action == 3
+        UP = action == 1
+        DOWN = action == 3
+        LEFT = action == 4
+        RIGHT = action == 2
         for _ in range(distance):
             self.player.move_player(UP, DOWN, LEFT, RIGHT)
             for sheep in self.sheep:
@@ -85,6 +85,7 @@ class GameMap:
         combined = []
         with open(self.map_file) as map_file:
             self.map_shape = [int(x) for x in map_file.readline().split()]
+            self.map_size = [int(self.map_scale * i) for i in self.map_shape]
             for line in map_file:
                 this_line = [str(s) for s in line.strip()]
                 combined.append(this_line)
@@ -129,7 +130,7 @@ class GameMap:
                     self.pen_rects.append(pygame.Rect(i*self.map_scale, j*self.map_scale, self.map_scale, self.map_scale))
 
     def game_over(self):
-        all_sheep_in_pen = None
+        all_sheep_in_pen = False
         for shp in self.sheep:
             shp_rect = pygame.Rect(shp.position, shp.size)
             if shp_rect.collidelist(self.pen_rects) == -1:
@@ -139,7 +140,7 @@ class GameMap:
                 all_sheep_in_pen = True
         return all_sheep_in_pen
 
-    def get_score(self, in_pen_score=25, dis_from_pen_penalty=.1):
+    def get_score(self, in_pen_score=25, dis_from_pen_penalty=.01):
         score = 0
         missing_sheep = []
         # Add sheep in pen
@@ -155,10 +156,20 @@ class GameMap:
                 score -= self.dist_nearest_pen(sheep) * dis_from_pen_penalty
         return score
 
+    def score_player(self, in_pen_score=25, dis_from_pen_penalty=.01):
+        player_rect = pygame.Rect(self.player.position, self.player.size)
+        score = 0
+        if player_rect.collidelist(self.pen_rects) == -1:
+            score -= dis_from_pen_penalty * self.dist_nearest_pen(self.player)
+        else:
+            score = in_pen_score
+        return score
+
+
     def dist_nearest_pen(self, sheep):
         lowest_dis = 1000000
         for pen in self.pen_rects:
-            distance = np.linalg.norm(sheep.position - pen[0:2])
+            distance = np.linalg.norm(np.array(sheep.position) - pen[0:2])
             if distance < lowest_dis:
                 lowest_dis = distance
         return lowest_dis
@@ -178,7 +189,7 @@ class GameMap:
 
         sheep = []
         for loc in sheep_loc:
-            sheep.append(Sheep(self, loc))
+            sheep.append(Sheep(self, loc, awareness_dis=self.map_size[0]//4))
         return sheep
 
     def random_position(self):
@@ -198,12 +209,12 @@ class GameMap:
         if self.collides_boundary(original_position, width_height):
             return new_position
 
-        corrected_x_pos = self.find_non_collisioin(original_position, new_position, width_height, (1,0))
-        corrected_y_pos = self.find_non_collisioin(corrected_x_pos, new_position, width_height, (0, 1))
+        corrected_x_pos = self.find_non_collision(original_position, new_position, width_height, (1,0))
+        corrected_y_pos = self.find_non_collision(corrected_x_pos, new_position, width_height, (0, 1))
 
         return corrected_y_pos
 
-    def find_non_collisioin(self, original_position, position, width_height, isolated_move_dir):
+    def find_non_collision(self, original_position, position, width_height, isolated_move_dir):
         '''
         Takes a position that's causing a collision, and backtracks to a non-colliding place
         isolated_move_dir: either (0, 1) or (1, 0)
@@ -266,7 +277,7 @@ class GameMap:
 
 
 class Sheep:
-    def __init__(self, map, position):
+    def __init__(self, map, position, awareness_dis=90):
         '''
         position: (2d array)
         velocity: (2d array)
@@ -276,7 +287,7 @@ class Sheep:
         global SHEEP_SPEED, SHEEP_MAX_SPEED, SPEED_CONVERSION, SHEEP_SIZE
         self.map = map
         self.timestill = 0
-        self.AWARENESS_DIS = 80
+        self.AWARENESS_DIS = awareness_dis
         self.size = SHEEP_SIZE
 
         self.direction = (0, 0)
@@ -324,6 +335,17 @@ class Sheep:
         result = self.position + direction * random.random() * MAX_DISTANCE * self.herd_awareness() / self.AWARENESS_DIS
         return result
 
+    def moves_into_pen(self, proposed_position):
+        result = False
+        if self.in_pen(proposed_position):
+            if not self.in_pen(self.position):
+                result = True
+        return result
+
+    def in_pen(self, position):
+        pos_rect = pygame.Rect(position, self.size)
+        return pos_rect.collidelist(self.map.pen_rects) != -1
+
     def player_nearby(self, awareness_dis=None):
         if awareness_dis is None:
             awareness_dis = min(self.AWARENESS_DIS, self.herd_awareness())
@@ -350,7 +372,7 @@ class Sheep:
     def away_from_player(self):
         player_pos = self.map.player.position
         direction = self.position - player_pos
-        return direction / np.linalg.norm(direction)
+        return direction / (np.linalg.norm(direction) + .00001)
 
     def random_move(self):
         '''
@@ -364,8 +386,15 @@ class Sheep:
         return direction
 
     def update_position(self, proposed_position):
+        move = True
+        # Don't move into pen unless being pushed by player
+        if not self.player_nearby():
+            if self.moves_into_pen(proposed_position):
+                move = False
+
         self.previous_position = np.array(self.position)
-        self.position = self.map.allowed_position(self.position, proposed_position, self.size)
+        if move:
+            self.position = self.map.allowed_position(self.position, proposed_position, self.size)
         if not self.at_destination(proposed_position) and not self.at_previous_location():
             self.timestill = 0
 
