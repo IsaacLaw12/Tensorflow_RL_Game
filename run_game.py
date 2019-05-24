@@ -4,7 +4,7 @@ import math
 import numpy as np
 from game_assets import GameMap, PLAYER_SIZE, SHEEP_SIZE
 
-gamemap = GameMap("map_rl.txt")
+gamemap = GameMap("map.txt")
 x_bounds = gamemap.width
 y_bounds = gamemap.height
 
@@ -20,7 +20,7 @@ sheep_img = pygame.transform.scale(sheep_img, s_size)
 def run_game():
     pygame.init()
     global end_font
-    end_font = pygame.font.SysFont(None, 40)
+    end_font = pygame.font.SysFont(None, 35)
     screen = pygame.display.set_mode((x_bounds, y_bounds))
     running = True
 
@@ -50,7 +50,7 @@ def play_again(screen, score):
 def render_end_screen(screen, score):
     draw_background(screen)
     end_text = end_font.render("You finished in %.1f seconds" % score, True, (255, 255, 255))
-    continue_text  = end_font.render("Press 'q' to quit or hit 'enter' to play again", True, (255, 255, 255))
+    continue_text  = end_font.render("Press 'q' to quit or 'enter' to play again", True, (255, 255, 255))
     print
     screen.blit(end_text, (x_bounds //2 - end_text.get_width() // 2, y_bounds // 2 - end_text.get_height() - 40))
     screen.blit(continue_text, (x_bounds//2 - continue_text.get_width() // 2, y_bounds // 2 - continue_text.get_height() ))
@@ -66,7 +66,6 @@ def run_game_instance(screen):
             return True
         read_input()
         render_graphics(screen)
-        print(gamemap.score_game(dis_from_pen_penalty=1))
         clock.tick(60)
     return False
 
